@@ -171,7 +171,8 @@ def get_basic_details(args, item_doc):
 	# if default specified in item is for another company, fetch from company
 	for d in [["Account", "income_account", "default_income_account"], ["Account", "expense_account", "default_expense_account"],
 		["Cost Center", "cost_center", "cost_center"], ["Warehouse", "warehouse", ""]]:
-			if not out[d[1]] or args.company != frappe.db.get_value(d[0], out.get(d[1]), "company"):
+			company = frappe.db.get_value(d[0], out.get(d[1]), "company")
+			if not out[d[1]] or (company and args.company != company):
 				out[d[1]] = frappe.db.get_value("Company", args.company, d[2]) if d[2] else None
 
 	for fieldname in ("item_name", "item_group", "barcode", "brand", "stock_uom"):
@@ -277,6 +278,15 @@ def get_serial_nos_by_fifo(args, item_doc):
 			"qty": cint(args.qty)
 		}))
 
+def get_actual_batch_qty(batch_no,warehouse,item_code):
+        actual_batch_qty = 0
+        if batch_no:
+            actual_batch_qty = flt(frappe.db.sql("""select sum(actual_qty)
+				from `tabStock Ledger Entry`
+				where warehouse=%s and item_code=%s and batch_no=%s""",
+				(warehouse, item_code, batch_no))[0][0])
+        return actual_batch_qty
+
 @frappe.whitelist()
 def get_conversion_factor(item_code, uom):
 	return {"conversion_factor": frappe.db.get_value("UOM Conversion Detail",
@@ -292,6 +302,12 @@ def get_available_qty(item_code, warehouse):
 	return frappe.db.get_value("Bin", {"item_code": item_code, "warehouse": warehouse},
 		["projected_qty", "actual_qty"], as_dict=True) or {}
 
+@frappe.whitelist()
+def get_batch_qty(batch_no,warehouse,item_code):
+	actual_batch_qty = get_actual_batch_qty(batch_no,warehouse,item_code)
+	if batch_no:
+		return {'actual_batch_qty': actual_batch_qty}
+	
 @frappe.whitelist()
 def apply_price_list(args):
 	"""

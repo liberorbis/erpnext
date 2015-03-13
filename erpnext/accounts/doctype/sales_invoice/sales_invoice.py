@@ -59,6 +59,7 @@ class SalesInvoice(SellingController):
 
 		if cint(self.update_stock):
 			self.validate_item_code()
+			self.validate_warehouse()
 			self.update_current_stock()
 			self.validate_delivery_note()
 
@@ -350,6 +351,11 @@ class SalesInvoice(SellingController):
 			if not d.item_code:
 				msgprint(_("Item Code required at Row No {0}").format(d.idx), raise_exception=True)
 
+	def validate_warehouse(self):
+		for d in self.get('entries'):
+			if not d.warehouse:
+				frappe.throw(_("Warehouse required at Row No {0}").format(d.idx))
+
 	def validate_delivery_note(self):
 		for d in self.get("entries"):
 			if d.delivery_note:
@@ -605,11 +611,10 @@ def get_income_account(doctype, txt, searchfield, start, page_len, filters):
 				and tabAccount.docstatus!=2
 				and ifnull(tabAccount.master_type, "")=""
 				and ifnull(tabAccount.master_name, "")=""
-				and tabAccount.company = '%(company)s'
-				and tabAccount.%(key)s LIKE '%(txt)s'
-				%(mcond)s""" % {'company': filters['company'], 'key': searchfield,
-			'txt': "%%%s%%" % txt, 'mcond':get_match_cond(doctype)})
-
+				and tabAccount.company = %(company)s
+				and tabAccount.{key} LIKE %(txt)s
+				{mcond}""".format(key=searchfield, mcond=get_match_cond(doctype)),
+				{'company': filters['company'], 'txt': "%%{0}%%".format(txt)})
 
 @frappe.whitelist()
 def make_delivery_note(source_name, target_doc=None):
