@@ -18,7 +18,13 @@ class AccountsController(TransactionBase):
 		self.validate_date_with_fiscal_year()
 		if self.meta.get_field("currency"):
 			self.calculate_taxes_and_totals()
-			self.validate_value("grand_total", ">=", 0)
+			if self.meta.get_field("document_type"):
+				value = frappe.db.get_value("Element Table", self.document_type, "val_float")
+				if value < 0:
+					self.validate_value("grand_total", "<=", 0)
+				else: self.validate_value("grand_total", ">=", 0)
+			else:
+				self.validate_value("grand_total", ">=", 0)
 			self.set_total_in_words()
 
 		self.validate_for_freezed_account()
